@@ -40,11 +40,9 @@ min_magnitude = st.sidebar.slider(
 # 3. USGS Earthquake API 데이터 불러오기
 @st.cache_data(ttl=600)
 def get_earthquake_data(days, min_mag):
-    # 날짜 계산
     endtime = datetime.now().strftime("%Y-%m-%d")
     starttime = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     
-    # API 요청 주소 및 파라미터 구성
     url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
     params = {
         "format": "geojson",
@@ -57,7 +55,6 @@ def get_earthquake_data(days, min_mag):
         response = requests.get(url, params=params)
         data = response.json()
         
-        # GeoJSON 데이터를 판다스 데이터프레임으로 변환
         features = data.get('features', [])
         quake_list = []
         for f in features:
@@ -82,7 +79,6 @@ df = get_earthquake_data(days_option, min_magnitude)
 
 # 4. 화면 레이아웃 구성 및 시각화
 if not df.empty:
-    # 상단 요약 지표 (Metric)
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric(label="📊 감지된 총 지진 횟수", value=f"{len(df)}건")
@@ -94,14 +90,12 @@ if not df.empty:
     st.markdown("### 🗺️ 세계 지진 발생 지도")
     st.caption("💡 팁: 지도를 드래그하여 움직이거나 마우스 휠로 확대/축소해 보세요. 점이 모여 선을 이루는 곳이 바로 지진대입니다.")
 
-    # Plotly Scatter Mapbox를 이용한 지도 시각화
     fig = px.scatter_mapbox(
         df,
         lat="latitude",
         lon="longitude",
         size="magnitude",
         color="depth",
-        # ERROR FIX: 대문자 'Thermal'을 소문자 'thermal'로 수정하여 에러를 해결했습니다.
         color_continuous_scale=px.colors.sequential.thermal,
         hover_name="place",
         hover_data={"magnitude": True, "depth": True, "time": True, "latitude": False, "longitude": False},
@@ -109,16 +103,27 @@ if not df.empty:
         height=650
     )
 
-    # 오픈스트리트맵 스타일 및 레이아웃 설정
     fig.update_layout(
         mapbox_style="open-street-map",
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         coloraxis_colorbar=dict(title="지진 깊이 (km)")
     )
     
-    # 스트림릿 웹 앱에 지도 출력
     st.plotly_chart(fig, use_container_width=True)
 
-    # 5. 학생들을 위한 탐구 및 토론 질문 세션
     st.divider()
-    st.markdown("### 📝 학생
+    st.markdown("### 📝 학생 탐구 활동 가이드")
+    
+    with st.expander("🔍 [활동 1] 지진대 찾기"):
+        st.write("1. 지도를 멀리서 보았을 때, 지진이 발생하는 곳들은 어떤 모양을 띠고 있나요? (예: 무작위로 흩어져 있다, 특정 선을 따라 모여 있다)")
+        st.write("2. 특히 태평양을 둘러싼 거대한 고리 모양의 지진대를 무엇이라고 부를까요? 교과서에서 찾아봅시다.")
+        
+    with st.expander("🤔 [활동 2] 규모(Magnitude)별 비교하기"):
+        st.write("1. 왼쪽 사이드바에서 최소 규모를 2.0으로 낮추었을 때와 5.5 이상으로 높였을 때, 지도상의 점들의 개수와 분포는 어떻게 달라지나요?")
+        st.write("2. 큰 규모의 지진이 자주 일어나는 위험한 지역은 어디인지 지도를 확대해 찾아보세요.")
+        
+    with st.expander("💡 [과학 개념 체크] 지진은 왜 여기서만 날까?"):
+        st.info("지구의 겉 부분은 여러 개의 거대한 '판(Plate)'으로 나누어져 있습니다. 이 판들은 매년 수 센티미터씩 매우 느리게 움직입니다. 이때 판และ 판이 만나는 경계면에서 서로 부딪히거나, 갈라지거나, 어긋나면서 엄청난 에너지가 쌓이게 되고, 이 에너지가 한 번에 터져 나오는 현상이 바로 지진입니다. 따라서 지진은 판의 경계(지진대)를 따라 띠 모양으로 집중되어 발생합니다!")
+
+else:
+    st.warning("선택한 조건에 해당하는 지진 데이터가 없거나 API 연결에 실패했습니다. 조건을 변경해 주세요.")
