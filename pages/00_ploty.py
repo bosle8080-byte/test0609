@@ -16,8 +16,7 @@ st.markdown("""
 # 2. 데이터 가져오기 함수 (서울시 오픈 API - 키 불필요 sample 주소 사용)
 @st.cache_data(ttl=60) # 60초 동안 데이터 캐싱 (실시간 데이터 과부하 방지)
 def load_bike_data():
-    # 1번부터 50번 대여소까지 조금 더 풍부한 데이터를 가져옵니다.
-    url = "http://openapi.seoul.go.kr:8088/sample/json/bikeList/1/50/"
+    url = "[http://openapi.seoul.go.kr:8088/sample/json/bikeList/1/50/](http://openapi.seoul.go.kr:8088/sample/json/bikeList/1/50/)"
     try:
         response = requests.get(url)
         data = response.json()
@@ -111,19 +110,4 @@ else:
             
         fig.update_layout(
             xaxis_title="거치대 개수 (rackTotCnt)",
-            yaxis_title="주차된 자전거 수 (parkingBikeTotCnt)",
-            margin=dict(l=20, r=20, t=20, b=20),
-            legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    # 3. 실시간 Raw Data 행렬 확인 탭
-    st.write("---")
-    st.header("🗂️ 실시간 수집된 데이터 행렬 (Matrix)")
-    st.dataframe(df, use_container_width=True)
-
-    # 4. 학생 탐구 질문 섹션
-    st.write("---")
-    st.header("🧠 수업 내 탐구 활동 및 토론 질문")
-    
-    with st.expander("❓ 질문 1. 오차를 그냥 더하지 않고 '제곱'해서 더하는(오차 제곱합) 수학적 이점은 무엇일까
+            yaxis_title="주차된 자전거 수 (parkingBikeTot
