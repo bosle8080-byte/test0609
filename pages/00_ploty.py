@@ -74,4 +74,46 @@ if selected_companies:
             fig_norm = go.Figure()
             for col in df_normalized.columns:
                 # 티커명을 기업명으로 매핑
-                display_name =
+                display_name = [k for k, v in TOP_10_STOCKS.items() if v == col][0]
+                # ERROR FIX: mode를 'l'에서 'lines'로 수정 완료
+                fig_norm.add_trace(go.Scatter(x=df_normalized.index, y=df_normalized[col], mode='lines', name=display_name))
+            
+            fig_norm.update_layout(
+                xaxis_title="날짜",
+                yaxis_title="수익률 (%)",
+                hovermode="x unified",
+                template="plotly_white",
+                height=600
+            )
+            st.plotly_chart(fig_norm, use_container_width=True)
+            
+        with tab2:
+            st.subheader("실제 주가 추이 (USD / SAR)")
+            st.caption("각 주식의 실제 종가 추이입니다. (아람코는 사우디 리얄(SAR), 나머지는 달러(USD) 기준)")
+            
+            fig_close = go.Figure()
+            for col in df.columns:
+                display_name = [k for k, v in TOP_10_STOCKS.items() if v == col][0]
+                # ERROR FIX: mode를 'l'에서 'lines'로 수정 완료
+                fig_close.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines', name=display_name))
+                
+            fig_close.update_layout(
+                xaxis_title="날짜",
+                yaxis_title="주가",
+                hovermode="x unified",
+                template="plotly_white",
+                height=600
+            )
+            st.plotly_chart(fig_close, use_container_width=True)
+            
+        with tab3:
+            st.subheader("가장 최근 10영업일 종가 데이터")
+            # 디스플레이용 이름으로 컬럼 변경
+            df_display = df.copy()
+            df_display.columns = [[k for k, v in TOP_10_STOCKS.items() if v == col][0] for col in df_display.columns]
+            st.dataframe(df_display.tail(10).round(2), use_container_width=True)
+            
+    else:
+        st.error("데이터를 불러오지 못했습니다. 티커를 확인하거나 잠시 후 다시 시도해주세요.")
+else:
+    st.warning("왼쪽 사이드바에서 기업을 하나 이상 선택해주세요.")
