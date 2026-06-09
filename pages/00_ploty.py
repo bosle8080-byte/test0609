@@ -1,119 +1,135 @@
 import streamlit as st
-import yfinance as yf
+import requests
 import pandas as pd
-import plotly.graph_objects as go
+import plotly.express as px
 from datetime import datetime, timedelta
 
-# 페이지 설정
+# 1. 페이지 기본 설정 및 디자인
 st.set_page_config(
-    page_title="글로벌 Top 10 주식 대시보드",
-    page_icon="📈",
+    page_title="중2 과학 - 지진 탐구 대시보드",
+    page_icon="🌋",
     layout="wide"
 )
 
-st.title("📈 글로벌 시가총액 Top 10 주식 대시보드")
-st.markdown("야후 파이낸스(yfinance) 데이터를 활용한 최근 1개년 주가 추이 및 수익률 비교 대시보드입니다.")
+# 제목 및 수업 탐구 주제 안내
+st.title("🌋 실시간 지진 데이터를 통한 '지권의 변화' 탐구")
+st.subheader("❓ 탐구 질문: 지진은 왜 특정 지역에 몰려서 발생할까?")
+st.markdown("""
+학생 여러분! 아래의 지도를 보며 지진이 자주 발생하는 지역이 어디인지 찾아보세요.
+이 지역들은 과학 시간에 배운 **'판의 경계(지진대)'**와 어떤 관련이 있을까요?
+""")
 
-# 글로벌 시가총액 Top 10 기업 지정 (티커 기준)
-TOP_10_STOCKS = {
-    "Microsoft (MSFT)": "MSFT",
-    "Apple (AAPL)": "AAPL",
-    "NVIDIA (NVDA)": "NVDA",
-    "Alphabet / Google (GOOGL)": "GOOGL",
-    "Amazon (AMZN)": "AMZN",
-    "Saudi Aramco (2222.SR)": "2222.SR",
-    "Meta Platforms (META)": "META",
-    "TSMC (TSM)": "TSM",
-    "Berkshire Hathaway (BRK-B)": "BRK-B",
-    "Tesla (TSLA)": "TSLA"
-}
+st.divider()
 
-# 사이드바 설정
-st.sidebar.header("⚙️ 설정 항목")
-selected_companies = st.sidebar.multiselect(
-    "시각화할 기업을 선택하세요 (기본 전체 선택)",
-    options=list(TOP_10_STOCKS.keys()),
-    default=list(TOP_10_STOCKS.keys())
+# 2. 사이드바 - 학생들이 조절할 필터 설정
+st.sidebar.header("🔍 탐구 조건 설정하기")
+
+# 기간 선택 (1일, 7일, 30일)
+days_option = st.sidebar.selectbox(
+    "1. 데이터 분석 기간을 선택하세요.",
+    options=[1, 7, 30],
+    format_func=lambda x: f"최근 {x}일"
 )
 
-# 데이터 기준일 계산 (최근 1년)
-end_date = datetime.today().strftime('%Y-%m-%d')
-start_date = (datetime.today() - timedelta(days=365)).strftime('%Y-%m-%d')
+# 최소 규모(Magnitude) 선택 슬라이더
+min_magnitude = st.sidebar.slider(
+    "2. 탐구할 최소 지진 규모(Magnitude)를 선택하세요.",
+    min_value=1.0,
+    max_value=7.0,
+    value=4.0,  # 기본값 4.0 (전 세계 지진대를 뚜렷하게 보기 좋은 규모)
+    step=0.5
+)
 
-# 데이터 로드 함수 (캐싱 처리로 속도 향상)
-@st.cache_data(ttl=3600)  # 1시간 동안 캐시 유지
-def load_data(tickers):
-    data = yf.download(tickers, start=start_date, end=end_date)
-    # yfinance 결과에서 Close 컬럼만 추출
-    if 'Close' in data.columns:
-        return data['Close']
-    return pd.DataFrame()
-
-if selected_companies:
-    # 선택된 기업의 티커 리스트 추출
-    tickers_to_fetch = [TOP_10_STOCKS[name] for name in selected_companies]
+# 3. USGS Earthquake API 데이터 불러오기
+@st.cache_data(ttl=600)  # 10분간 캐싱하여 API 부하 감소 및 로딩 속도 향상
+def get_earthquake_data(days, min_mag):
+    # 날짜 계산
+    endtime = datetime.now().strftime("%Y-%m-%d")
+    starttime = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     
-    with st.spinner('야후 파이낸스에서 데이터를 불러오는 중입니다...'):
-        df = load_data(tickers_to_fetch)
+    # API 요청 주소 및 파라미터 구성
+    url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+    params = {
+        "format": "geojson",
+        "starttime": starttime,
+        "endtime": endtime,
+        "minmagnitude": min_mag
+    }
     
-    if not df.empty:
-        # 데이터프레임 단일 티커 예외 처리 (1개 선택 시 Series로 반환되는 경우 방지)
-        if len(tickers_to_fetch) == 1:
-            df = df.to_frame(name=tickers_to_fetch[0])
-            
-        # 탭 레이아웃 구성
-        tab1, tab2, tab3 = st.tabs(["📊 주가 추이 (정규화)", "💰 실제 종가 추이", "📋 최근 데이터 테이블"])
+    try:
+        response = requests.get(url, params=params)
+        data = response.json()
         
-        with tab1:
-            st.subheader("1년 전 기준 누적 수익률 비교 (%)")
-            st.caption("시작일(1년 전) 주가를 100으로 맞추어 어떤 주식이 가장 많이 올랐는지 비교합니다.")
-            
-            # 정규화 (누적 수익률 계산: (현재가 / 시작가) * 100 - 100)
-            df_normalized = (df / df.iloc[0] - 1) * 100
-            
-            fig_norm = go.Figure()
-            for col in df_normalized.columns:
-                # 티커명을 기업명으로 매핑
-                display_name = [k for k, v in TOP_10_STOCKS.items() if v == col][0]
-                # ERROR FIX: mode를 'l'에서 'lines'로 수정 완료
-                fig_norm.add_trace(go.Scatter(x=df_normalized.index, y=df_normalized[col], mode='lines', name=display_name))
-            
-            fig_norm.update_layout(
-                xaxis_title="날짜",
-                yaxis_title="수익률 (%)",
-                hovermode="x unified",
-                template="plotly_white",
-                height=600
-            )
-            st.plotly_chart(fig_norm, use_container_width=True)
-            
-        with tab2:
-            st.subheader("실제 주가 추이 (USD / SAR)")
-            st.caption("각 주식의 실제 종가 추이입니다. (아람코는 사우디 리얄(SAR), 나머지는 달러(USD) 기준)")
-            
-            fig_close = go.Figure()
-            for col in df.columns:
-                display_name = [k for k, v in TOP_10_STOCKS.items() if v == col][0]
-                # ERROR FIX: mode를 'l'에서 'lines'로 수정 완료
-                fig_close.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines', name=display_name))
-                
-            fig_close.update_layout(
-                xaxis_title="날짜",
-                yaxis_title="주가",
-                hovermode="x unified",
-                template="plotly_white",
-                height=600
-            )
-            st.plotly_chart(fig_close, use_container_width=True)
-            
-        with tab3:
-            st.subheader("가장 최근 10영업일 종가 데이터")
-            # 디스플레이용 이름으로 컬럼 변경
-            df_display = df.copy()
-            df_display.columns = [[k for k, v in TOP_10_STOCKS.items() if v == col][0] for col in df_display.columns]
-            st.dataframe(df_display.tail(10).round(2), use_container_width=True)
-            
-    else:
-        st.error("데이터를 불러오지 못했습니다. 티커를 확인하거나 잠시 후 다시 시도해주세요.")
-else:
-    st.warning("왼쪽 사이드바에서 기업을 하나 이상 선택해주세요.")
+        # GeoJSON 데이터를 판다스 데이터프레임으로 변환
+        features = data['features']
+        quake_list = []
+        for f in features:
+            props = f['properties']
+            geom = f['geometry']
+            quake_list.append({
+                "place": props['place'],
+                "magnitude": props['mag'],
+                "time": pd.to_datetime(props['time'], unit='ms'),
+                "longitude": geom['coordinates'][0],
+                "latitude": geom['coordinates'][1],
+                "depth": geom['coordinates'][2]
+            })
+        return pd.DataFrame(quake_list)
+    except Exception as e:
+        return pd.DataFrame()
+
+# 데이터 로딩 실행
+df = get_earthquake_data(days_option, min_magnitude)
+
+# 4. 화면 레이아웃 구성 및 시각화
+if not df.empty:
+    # 상단 요약 지표 (Metric)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(label="📊 감지된 총 지진 횟수", value=f"{len(df)}건")
+    with col2:
+        st.metric(label="💥 가장 강력한 지진 규모", value=f"M {df['magnitude'].max()}")
+    with col3:
+        st.metric(label="📍 주 탐구 지역", value="환태평양 지진대 등")
+
+    st.markdown("### 🗺️ 세계 지진 발생 지도")
+    st.caption("💡 팁: 지도를 드래그하여 움직이거나 마우스 휠로 확대/축소해 보세요. 점이 모여 선을 이루는 곳이 바로 지진대입니다.")
+
+    # Plotly Scatter Mapbox를 이용한 지도 시각화
+    fig = px.scatter_mapbox(
+        df,
+        lat="latitude",
+        lon="longitude",
+        size="magnitude",          # 규모가 클수록 점의 크기가 커짐
+        color="depth",             # 진원의 깊이에 따라 색상 변화 (천발/심발 지진 시각화)
+        color_continuous_scale=px.colors.sequential.Thermal,
+        hover_name="place",
+        hover_data={"magnitude": True, "depth": True, "time": True, "latitude": False, "longitude": False},
+        zoom=1,
+        height=650
+    )
+
+    # 오픈스트리트맵(오픈소스) 스타일 적용
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin={"r":0,"t":0,"l":0,"b":0},
+        coloraxis_colorbar=dict(title="지진 깊이 (km)")
+    )
+    
+    # 스트림릿 웹 앱에 지도 출력
+    st.plotly_chart(fig, use_container_width=True)
+
+    # 5. 학생들을 위한 탐구 및 토론 질문 세션
+    st.divider()
+    st.markdown("### 📝 학생 탐구 활동 가이드")
+    
+    with st.expander("🔍 [활동 1] 지진대 찾기"):
+        st.write("""
+        1. 지도를 멀리서 보았을 때, 지진이 발생하는 곳들은 어떤 모양을 띠고 있나요? (예: 무작위로 흩어져 있다, 특정 선을 따라 모여 있다)
+        2. 특히 태평양을 둘러싼 거대한 고리 모양의 지진대를 무엇이라고 부를까요? 교과서에서 찾아봅시다.
+        """)
+        
+    with st.expander("🤔 [활동 2] 규모(Magnitude)별 비교하기"):
+        st.write("""
+        1. 왼쪽 사이드바에서 최소 규모를 **2.0**으로 낮추었을 때와 **5.5** 이상으로 높였을 때, 지도상의 점들의 개수와 분포는 어떻게 달라지나요?
+        2. 큰
