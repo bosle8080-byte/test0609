@@ -1,46 +1,48 @@
 import streamlit as st
 
-# 💖 데이터: 외부 라이브러리 없이 순수 파이썬 데이터 구조 사용
-mbti_data = {
-    "INTJ": {"아이콘": "🧠", "분야": "전략적 분석 및 혁신", "직업": ["데이터 과학자", "경영 전략가", "시스템 설계자"]},
-    "INTP": {"아이콘": "🔍", "분야": "논리적 탐구 및 개발", "직업": ["소프트웨어 개발자", "연구원", "철학자"]},
-    "ENTJ": {"아이콘": "🚀", "분야": "통솔 및 조직 운영", "직업": ["CEO", "기업 경영자", "변호사"]},
-    "ENTP": {"아이콘": "💡", "분야": "창의적 문제 해결", "직업": ["발명가", "마케팅 전문가", "기업가"]},
-    "INFJ": {"아이콘": "✨", "분야": "통찰과 영감", "직업": ["심리 상담가", "작가", "사회 운동가"]},
-    "INFP": {"아이콘": "🎨", "분야": "이상주의와 창의", "직업": ["예술가", "작가", "심리 치료사"]},
-    "ENFJ": {"아이콘": "🌟", "분야": "타인 지향적 리더십", "직업": ["교육자", "인사 관리자", "사회 복지사"]},
-    "ENFP": {"아이콘": "🌈", "분야": "열정적 에너지와 소통", "직업": ["기획자", "홍보 전문가", "방송인"]},
-    "ISTJ": {"아이콘": "📚", "분야": "실무와 체계", "직업": ["회계사", "공무원", "데이터 분석가"]},
-    "ISFJ": {"아이콘": "🛡️", "분야": "헌신과 세심함", "직업": ["보건 의료인", "교육자", "사서"]},
-    "ESTJ": {"아이콘": "📋", "분야": "효율과 질서", "직업": ["경영 관리자", "공무원", "법조인"]},
-    "ESFJ": {"아이콘": "🤝", "분야": "협력과 지원", "직업": ["상담가", "홍보 담당자", "사회 복지사"]},
-    "ISTP": {"아이콘": "🔧", "분야": "기술적 분석과 실용", "직업": ["엔지니어", "분석가", "전문 기술자"]},
-    "ISFP": {"아이콘": "🌸", "분야": "감성과 미적 감각", "직업": ["디자이너", "음악가", "미술 치료사"]},
-    "ESTP": {"아이콘": "⚡", "분야": "현장감과 활동성", "직업": ["운동선수", "마케팅 기획자", "경찰/소방관"]},
-    "ESFP": {"아이콘": "🎉", "분야": "활동적 사교와 즐거움", "직업": ["배우", "이벤트 기획자", "서비스 관리자"]}
+st.set_page_config(page_title="칼로리 기록기", page_icon="🍎")
+
+# 1. 간단한 음식 데이터베이스 (임의 데이터)
+food_db = {
+    "사과": 95, "바나나": 105, "밥": 300, "닭가슴살": 165,
+    "계란": 78, "라면": 500, "김치": 30, "샐러드": 150
 }
 
-# 🎨 앱 디자인 레이아웃
-st.title("💖 나의 빛나는 미래 찾기: MBTI 에디션 ✨")
-st.markdown("---")
-st.subheader("지금 바로 당신의 MBTI를 선택해 보세요! 🔍")
+st.title("🍎 음식 칼로리 계산기")
+st.write("오늘 먹은 음식을 추가해서 총 칼로리를 확인하세요!")
 
-# 사용자 선택
-option = st.selectbox("당신의 MBTI를 골라주세요:", list(mbti_data.keys()))
+# 세션 상태 초기화 (음식 리스트 저장용)
+if 'meal_log' not in st.session_state:
+    st.session_state.meal_log = []
 
-# 🚀 추천 결과 확인 버튼
-if st.button("내 미래 직업 확인하기! 🌈"):
-    data = mbti_data[option]
+# 2. 음식 선택 및 추가
+with st.container():
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        food_name = st.selectbox("음식을 선택하세요", list(food_db.keys()))
+    with col2:
+        st.write("") # 간격 맞춤
+        st.write("")
+        add_btn = st.button("추가")
+
+if add_btn:
+    st.session_state.meal_log.append(food_name)
+
+# 3. 결과 표시 및 삭제
+st.divider()
+st.subheader("오늘의 식단")
+
+if st.session_state.meal_log:
+    total_kcal = 0
+    for idx, item in enumerate(st.session_state.meal_log):
+        kcal = food_db[item]
+        total_kcal += kcal
+        st.write(f"{idx+1}. {item}: **{kcal} kcal**")
     
-    # 결과 시각화
-    st.markdown(f"### {data['아이콘']} 당신은 **{option}** 유형이군요! {data['아이콘']}")
-    st.success(f"**핵심 진로 분야**: {data['분야']}")
+    st.success(f"현재까지 총 섭취 칼로리: **{total_kcal} kcal**")
     
-    st.write("---")
-    st.write("#### 💎 추천드리는 직업군:")
-    for job in data['직업']:
-        st.markdown(f"- **{job}** ✨")
-        
-    st.write("---")
-    st.balloons() # ✨ 화면에 풍선 애니메이션 효과
-    st.write("💡 이 직업들은 당신의 고유한 강점을 살릴 수 있는 분야입니다. 꿈을 향해 나아가세요! 🌈")
+    if st.button("기록 초기화"):
+        st.session_state.meal_log = []
+        st.rerun()
+else:
+    st.info("아직 기록된 음식이 없습니다.")
